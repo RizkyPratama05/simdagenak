@@ -91,10 +91,27 @@
                 html += '<td class="text-center">' + (b.no_urut || (bi + 1)) + '</td>';
                 html += '<td>' + b.nama_baris + '</td>';
                 $.each(b.cells, function (ci, c) {
-                    html += '<td><input type="text" class="cell-input" ' +
+                    var k = kolom[ci];
+                    var isJml = false;
+                    if (k) {
+                        var name = (k.nama_kolom || '').toLowerCase().trim();
+                        var header = (k.header_kolom || '').toLowerCase().trim();
+                        if (name === 'jumlah' || name === 'total' || name === 'l+p' || name === 'jml' || name === 'l + p' ||
+                            header === 'jumlah' || header === 'total' || header === 'l+p' || header === 'jml' || header === 'l + p') {
+                            isJml = true;
+                        }
+                    }
+
+                    var inputAttrs = isJml 
+                        ? ' readonly="readonly" style="background-color: #f5f5f5; cursor: not-allowed; font-weight: bold;" class="cell-input cell-jumlah" ' 
+                        : ' class="cell-input" ';
+
+                    html += '<td><input type="text" ' + inputAttrs +
                         'data-kode-baris="' + b.kode_baris + '" ' +
                         'data-kode-kolom="' + c.kode_kolom + '" ' +
                         'data-id-instansi="' + id_instansi_res + '" ' +
+                        'data-header-kolom="' + (k ? k.header_kolom || '' : '') + '" ' +
+                        'data-nama-kolom="' + (k ? k.nama_kolom || '' : '') + '" ' +
                         'value="' + (c.val !== null && c.val !== '' ? c.val : '') + '"></td>';
                 });
                 html += '</tr>';
@@ -102,11 +119,60 @@
             html += '</tbody>';
 
             $me('#matriksTable').html(html);
+            recalculateSums();
         });
     }
 
+    function recalculateSums() {
+        $me('#matriksTable tbody tr').each(function () {
+            var $row = $(this);
+            var groups = {};
+            var jumlahInputs = [];
+            
+            // First pass: collect regular inputs and group them by header, collect sum inputs
+            $row.find('.cell-input').each(function () {
+                var $input = $(this);
+                var header = ($input.data('header-kolom') || '').toString().toLowerCase().trim();
+                var name = ($input.data('nama-kolom') || '').toString().toLowerCase().trim();
+                
+                var isJml = (name === 'jumlah' || name === 'total' || name === 'l+p' || name === 'jml' || name === 'l + p' ||
+                             header === 'jumlah' || header === 'total' || header === 'l+p' || header === 'jml' || header === 'l + p');
+                
+                if (isJml) {
+                    jumlahInputs.push($input);
+                } else {
+                    if (!groups[header]) {
+                        groups[header] = [];
+                    }
+                    groups[header].push($input);
+                }
+            });
+            
+            // Second pass: compute and update sums
+            $.each(jumlahInputs, function (i, $jInput) {
+                var jHeader = ($jInput.data('header-kolom') || '').toString().toLowerCase().trim();
+                var sum = 0;
+                var groupInputs = groups[jHeader] || [];
+                
+                $.each(groupInputs, function (j, $input) {
+                    var valStr = $input.val().replace(',', '.');
+                    var val = parseFloat(valStr) || 0;
+                    sum += val;
+                });
+                
+                var formattedSum = sum % 1 === 0 ? sum : parseFloat(sum.toFixed(4));
+                $jInput.val(formattedSum);
+            });
+        });
+    }
+
+    $me('#matriksContainer').on('input', '.cell-input:not([readonly])', function () {
+        recalculateSums();
+    });
+
     $me('#matriksContainer').on('blur', '.cell-input', function () {
         var $input = $(this);
+        if ($input.prop('readonly')) return; // Don't save readonly cells from frontend
         var val = $input.val();
         var kodeBaris = $input.data('kode-baris');
         var kodeKolom = $input.data('kode-kolom');

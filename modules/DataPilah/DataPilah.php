@@ -317,7 +317,94 @@ class DataPilah extends Database
             $sql = "INSERT INTO data_pilah_cell (kode_data_pilah, kode_baris, kode_kolom, tahun, val, id_instansi) 
                     VALUES (:kode_data_pilah, :kode_baris, :kode_kolom, :tahun, :val, :id_instansi)";
         }
-        echo $this->dbDataExecute($sql, $d);
+        $res = $this->dbDataExecute($sql, $d);
+
+        // --- AUTO SUM RECALCULATION & DB UPDATE ---
+        // 1. Get all columns for this matrix
+        $sqlKolom = "SELECT * FROM data_pilah_kolom WHERE kode_data_pilah = '$kode_dp' ORDER BY id_data_pilah_kolom ASC";
+        $koloms = $this->dbDataSelectAndReturnAll($sqlKolom, null, true);
+        
+        // 2. Identify sum columns and group columns by header_kolom
+        $groups = array();
+        foreach ($koloms as $k) {
+            $header = strtolower(trim($k->header_kolom ?? ''));
+            if (!isset($groups[$header])) {
+                $groups[$header] = array(
+                    'jumlah_cols' => array(),
+                    'regular_cols' => array()
+                );
+            }
+            
+            $name = strtolower(trim($k->nama_kolom ?? ''));
+            if ($name === 'jumlah' || $name === 'total' || $name === 'l+p' || $name === 'jml' || $name === 'l + p' ||
+                $header === 'jumlah' || $header === 'total' || $header === 'l+p' || $header === 'jml' || $header === 'l + p') {
+                $groups[$header]['jumlah_cols'][] = $k;
+            } else {
+                $groups[$header]['regular_cols'][] = $k;
+            }
+        }
+        
+        // 3. Recalculate sums and update the database for each group with a "jumlah" column
+        foreach ($groups as $header => $groupData) {
+            if (empty($groupData['jumlah_cols'])) {
+                continue;
+            }
+            
+            $sum = 0.0;
+            if (!empty($groupData['regular_cols'])) {
+                foreach ($groupData['regular_cols'] as $col) {
+                    $cKode = $col->kode_kolom;
+                    $sqlVal = "SELECT val FROM data_pilah_cell 
+                               WHERE kode_data_pilah = '$kode_dp' 
+                               AND kode_baris = '$kode_baris' 
+                               AND tahun = $tahun 
+                               AND id_instansi = $id_instansi
+                               AND kode_kolom = '$cKode'";
+                    $valStr = $this->dbDataGetValue($sqlVal);
+                    if ($valStr !== null && $valStr !== '') {
+                        $valStr = str_replace(',', '.', $valStr);
+                        $sum += (float)$valStr;
+                    }
+                }
+            }
+            
+            // Format sum nicely (e.g. if integer, don't show decimal places)
+            $formattedSum = ($sum == (int)$sum) ? (int)$sum : $sum;
+            
+            // Save the sum to each "jumlah" column in this group
+            foreach ($groupData['jumlah_cols'] as $jCol) {
+                $jKode = $jCol->kode_kolom;
+                
+                $sqlCekJ = "SELECT count(*) FROM data_pilah_cell 
+                            WHERE kode_data_pilah='$kode_dp' AND kode_baris='$kode_baris' 
+                            AND kode_kolom='$jKode' AND tahun=$tahun AND id_instansi=$id_instansi";
+                $countJ = $this->dbDataGetValue($sqlCekJ);
+                
+                $jParams = array(
+                    'kode_data_pilah' => $kode_dp,
+                    'kode_baris' => $kode_baris,
+                    'kode_kolom' => $jKode,
+                    'tahun' => $tahun,
+                    'id_instansi' => $id_instansi,
+                    'val' => $formattedSum
+                );
+                
+                if ($countJ > 0) {
+                    $sqlSaveJ = "UPDATE data_pilah_cell SET val = :val 
+                                 WHERE kode_data_pilah = :kode_data_pilah 
+                                 AND kode_baris = :kode_baris 
+                                 AND kode_kolom = :kode_kolom 
+                                 AND tahun = :tahun
+                                 AND id_instansi = :id_instansi";
+                } else {
+                    $sqlSaveJ = "INSERT INTO data_pilah_cell (kode_data_pilah, kode_baris, kode_kolom, tahun, val, id_instansi) 
+                                 VALUES (:kode_data_pilah, :kode_baris, :kode_kolom, :tahun, :val, :id_instansi)";
+                }
+                $this->dbDataExecute($sqlSaveJ, $jParams);
+            }
+        }
+        
+        echo $res;
     }
 
     // =====================================================================
