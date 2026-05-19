@@ -233,10 +233,16 @@
                         <div class="custom-toolbar">
                             <span class="panel-title-text"><i class="fa fa-list-ul text-success"></i> DAFTAR
                                 BARIS</span>
-                            <button class="btn btn-xs btn-success btTambahBaris"
-                                style="border-radius: 4px; padding: 3px 10px;">
-                                <i class="fa fa-plus"></i> Tambah Baris
-                            </button>
+                            <div style="display: flex; gap: 6px;">
+                                <button class="btn btn-xs btn-warning btTambahKecamatanBps"
+                                    style="border-radius: 4px; padding: 3px 10px;" disabled>
+                                    <i class="fa fa-globe"></i> Gunakan 17 Kecamatan BPS
+                                </button>
+                                <button class="btn btn-xs btn-success btTambahBaris"
+                                    style="border-radius: 4px; padding: 3px 10px;">
+                                    <i class="fa fa-plus"></i> Tambah Baris
+                                </button>
+                            </div>
                         </div>
                         <div style="max-height: 350px; overflow-y: auto;">
                             <table class="table-modern" id="tabelBaris">

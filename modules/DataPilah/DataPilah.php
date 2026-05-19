@@ -157,6 +157,41 @@ class DataPilah extends Database
         echo $this->dbDataExecute($sql, $d);
     }
 
+    public function ACTION_addKecamatanBps(){
+        $params = isset($_GET) ? $_GET : $_POST;
+        if(isset($_GET['kode_data_pilah'])) {
+            $params = $_GET;
+        }
+        $kode_dp = $params['kode_data_pilah'];
+
+        // Cek apakah sudah ada baris
+        $sqlCek = "SELECT count(*) FROM data_pilah_baris WHERE kode_data_pilah = '$kode_dp'";
+        $count = $this->dbDataGetValue($sqlCek);
+        if ($count > 0) {
+            echo json_encode(array("success" => false, "msg" => "Daftar baris harus kosong untuk menggunakan 17 kecamatan BPS."));
+            return;
+        }
+
+        $kecamatanSleman = array(
+            "Moyudan", "Minggir", "Seyegan", "Godean", "Gamping", "Mlati", "Depok", "Berbah",
+            "Prambanan", "Kalasan", "Ngemplak", "Ngaglik", "Sleman", "Tempel", "Turi", "Pakem", "Cangkringan"
+        );
+
+        $successCount = 0;
+        foreach ($kecamatanSleman as $index => $nama) {
+            $seq = str_pad($index + 1, 2, '0', STR_PAD_LEFT);
+            $kode_baris = $kode_dp . "." . $seq;
+            $noUrut = $index + 1;
+
+            $sql = "INSERT INTO data_pilah_baris (kode_data_pilah, no_urut, kode_baris, nama_baris, aktif) 
+                    VALUES ('$kode_dp', $noUrut, '$kode_baris', '$nama', 1)";
+            $this->dbDataExecute($sql);
+            $successCount++;
+        }
+
+        echo json_encode(array("success" => true, "msg" => "Berhasil menambahkan 17 kecamatan Sleman BPS."));
+    }
+
     public function ACTION_deleteBaris(){
         $params = isset($_GET) ? $_GET : $_POST;
         $id = $params['data']['id_data_pilah_baris'];

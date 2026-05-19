@@ -299,12 +299,36 @@
                     '<i class="fa fa-trash-o"></i></button></td>' +
                     '</tr>';
             });
+            
+            // Toggle Gunakan 17 Kecamatan BPS button based on row count
             if (resp.data.length === 0) {
                 tbody = '<tr><td colspan="4" class="text-center text-muted">Belum ada baris</td></tr>';
+                $me('.btTambahKecamatanBps').prop('disabled', false);
+            } else {
+                $me('.btTambahKecamatanBps').prop('disabled', true);
             }
+            
             $me('#tabelBaris tbody').html(tbody);
         });
     }
+
+    // Tombol Gunakan 17 Kecamatan BPS
+    $me('.btTambahKecamatanBps').off('click').on('click', function () {
+        if(confirm("Apakah Anda yakin ingin mengisi daftar baris secara otomatis dengan 17 Kecamatan Sleman BPS?")) {
+            $me('.overlay').show();
+            MyApp.ajax({
+                option: 'ACTION', action: 'addKecamatanBps',
+                kode_data_pilah: curKode
+            }, function (resp) {
+                $me('.overlay').hide();
+                alert(resp.msg);
+                if (resp.success) {
+                    loadBaris();
+                    loadMatriks();
+                }
+            });
+        }
+    });
 
     // Tombol Tambah Baris — gunakan $() global karena akan membuka modal
     $('.btTambahBaris').on('click', function () {
